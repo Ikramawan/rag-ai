@@ -1,0 +1,25 @@
+{
+  "embedding_model": "nomic-embed-text",
+  "chunks": [
+    {
+      "source": "gcp-project-guide.md",
+      "chunk_id": "gcp-project-guide.md:0",
+      "text": "Document: GCP Project Creation — Synthetic Training Guide\n\n# GCP Project Creation — Synthetic Training Guide\n\nThis fictional procedure is for testing the RAG application.\nIt is not an actual company policy."
+    },
+    {
+      "source": "gcp-project-guide.md",
+      "chunk_id": "gcp-project-guide.md:1",
+      "text": "Document: GCP Project Creation — Synthetic Training Guide\n\n## Prerequisites\n\n- Obtain approval from the platform team.\n- Confirm the target organisation and folder.\n- Agree on a unique project ID.\n- Identify the billing account and confirm permission to link it."
+    },
+    {
+      "source": "gcp-project-guide.md",
+      "chunk_id": "gcp-project-guide.md:2",
+      "text": "Document: GCP Project Creation — Synthetic Training Guide\n\n## Procedure\n\n1. Create the project in the approved organisation and folder.\n2. Link the project to the approved billing account before using paid services.\n3. Apply the required labels: owner, environment and cost-centre.\n4. Grant access using approved groups and least-privilege roles.\n5. Enable only the APIs required for the workload.\n6. Configure a budget and budget alerts."
+    },
+    {
+      "source": "gcp-project-guide.md",
+      "chunk_id": "gcp-project-guide.md:3",
+      "text": "Document: GCP Project Creation — Synthetic Training Guide\n\n## Important notes\n\n- Budget alerts do not automatically stop spending.\n- If billing permissions are missing, contact the billing administrator.\n- This guide does not define networking or project deletion procedures."
+    }
+  ]
+}
