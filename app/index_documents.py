@@ -40,9 +40,7 @@ def main() -> None:
         "http://localhost:11434/api/embed",
         json={
             "model": MODEL,
-            "input": [
-                f"search_document: {chunk['text']}" for chunk in chunks
-            ],
+            "input": [f"search_document: {chunk['text']}" for chunk in chunks],
             "truncate": False,
         },
         timeout=180,

@@ -16,9 +16,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 if question := st.chat_input("Ask about your documents"):
-    st.session_state.messages.append(
-        {"role": "user", "content": question}
-    )
+    st.session_state.messages.append({"role": "user", "content": question})
     with st.chat_message("user"):
         st.markdown(question)
 
@@ -30,6 +28,4 @@ if question := st.chat_input("Ask about your documents"):
             st.error(f"Could not answer: {exc}")
         else:
             st.markdown(result)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": result}
-            )
+            st.session_state.messages.append({"role": "assistant", "content": result})

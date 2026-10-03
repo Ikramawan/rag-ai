@@ -42,8 +42,7 @@ def answer(question: str) -> str:
                 {
                     "role": "user",
                     "content": (
-                        f"Document excerpts:\n{context}\n\n"
-                        f"Question: {question}"
+                        f"Document excerpts:\n{context}\n\nQuestion: {question}"
                     ),
                 },
             ],
@@ -75,9 +74,7 @@ def answer(question: str) -> str:
 def main() -> None:
     question = " ".join(sys.argv[1:]).strip()
     if not question:
-        raise SystemExit(
-            'Usage: python -m app.answer_question "your question"'
-        )
+        raise SystemExit('Usage: python -m app.answer_question "your question"')
 
     print(answer(question))
 
