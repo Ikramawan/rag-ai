@@ -90,9 +90,11 @@ def search(question: str, top_k: int = 3) -> list[dict]:
     if not question.strip() or top_k < 1:
         raise ValueError("Provide a question and a positive top_k.")
 
-    metadata = json.loads((INDEX_DIR / "chunks.json").read_text(encoding="utf-8"))
+    with np.load(INDEX_DIR / "index.npz", allow_pickle=False) as index:
+        metadata = json.loads(index["metadata"].item())
+        vectors = index["vectors"]
+
     chunks = metadata["chunks"]
-    vectors = np.load(INDEX_DIR / "vectors.npy", allow_pickle=False)
 
     if (
         vectors.ndim != 2

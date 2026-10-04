@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -74,15 +76,32 @@ def main() -> dict:
         raise ValueError("Invalid embedding response.")
 
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
-    np.save(INDEX_DIR / "vectors.npy", vectors)
-    (INDEX_DIR / "chunks.json").write_text(
-        json.dumps(
-            {"embedding_model": MODEL, "chunks": chunks},
-            indent=2,
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
+
+    metadata = json.dumps(
+        {"embedding_model": MODEL, "chunks": chunks},
+        ensure_ascii=False,
     )
+
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=INDEX_DIR,
+            suffix=".npz",
+            delete=False,
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            np.savez_compressed(
+                temporary,
+                vectors=vectors,
+                metadata=np.asarray(metadata),
+            )
+            temporary.flush()
+            os.fsync(temporary.fileno())
+
+        os.replace(temporary_path, INDEX_DIR / "index.npz")
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
     print(f"Indexed {len(chunks)} chunks.")
     print(f"Vector shape: {vectors.shape}")
