@@ -13,8 +13,10 @@ INDEX_DIR = PROJECT_ROOT / "data" / "index"
 MODEL = "nomic-embed-text"
 
 
-def main() -> None:
+def main() -> dict:
     chunks = []
+    loaded = []
+    skipped = []
 
     for path in sorted(DOCUMENTS_DIR.rglob("*")):
         if not path.is_file() or path.name.startswith("~$"):
@@ -24,6 +26,7 @@ def main() -> None:
 
         if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
             print(f"Skipped unsupported file: {source}")
+            skipped.append(source)
             continue
 
         text = load_document(path)
@@ -44,6 +47,7 @@ def main() -> None:
                 )
 
         print(f"Loaded: {source}")
+        loaded.append(source)
 
     if not chunks:
         raise ValueError("No readable supported documents found.")
@@ -82,6 +86,11 @@ def main() -> None:
 
     print(f"Indexed {len(chunks)} chunks.")
     print(f"Vector shape: {vectors.shape}")
+    return {
+        "loaded": loaded,
+        "skipped": skipped,
+        "chunk_count": len(chunks),
+    }
 
 
 if __name__ == "__main__":

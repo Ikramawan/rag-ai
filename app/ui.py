@@ -56,11 +56,24 @@ with st.sidebar:
     if st.button("Rebuild index"):
         try:
             with st.spinner("Reading documents and creating embeddings…"):
-                rebuild_index()
+                report = rebuild_index()
         except (requests.RequestException, OSError, ValueError, KeyError) as exc:
             st.error(f"Index rebuild failed: {exc}")
         else:
-            st.success("Index rebuilt successfully.")
+            st.success(
+                f"Indexed {len(report['loaded'])} documents "
+                f"into {report['chunk_count']} chunks."
+            )
+
+            with st.expander("Loaded documents"):
+                for source in report["loaded"]:
+                    st.text(source)
+
+            if report["skipped"]:
+                st.warning(f"Skipped {len(report['skipped'])} unsupported files.")
+                with st.expander("Skipped files"):
+                    for source in report["skipped"]:
+                        st.text(source)
 
     files = (
         sorted(
