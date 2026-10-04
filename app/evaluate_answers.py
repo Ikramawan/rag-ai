@@ -41,6 +41,34 @@ CASES = [
         "forbidden": ["gcloud", "console", "click", "shut down"],
         "citation": False,
     },
+    {
+        "question": (
+            "VPN is connected but two internal hostnames fail. What should I do?"
+        ),
+        "required": ["diagnostic bundle", "network support"],
+        "forbidden": ["reinstall", "disable endpoint protection"],
+        "citation": True,
+    },
+    {
+        "question": "VPN sign-in says Account locked. Who should I contact?",
+        "required": ["identity support team"],
+        "forbidden": ["billing administrator"],
+        "citation": True,
+    },
+    {
+        "question": "What is the P2 initial response target?",
+        "required": ["1 business hour"],
+        "forbidden": ["15 minutes", "24/7"],
+        "citation": True,
+    },
+    {
+        "question": (
+            "My existing GCP project's billing account is suspended. What should I do?"
+        ),
+        "required": ["billing administrator"],
+        "forbidden": [],
+        "citation": True,
+    },
 ]
 
 
