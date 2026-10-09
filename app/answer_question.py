@@ -33,7 +33,7 @@ def answer(question: str) -> str:
     results = search(question, top_k=3)
 
     context = "\n\n".join(
-        f"[{number}] Source: {result['source']}\n"
+        f"[{number}] Source: {result.get('source_url', result['source'])}\n"
         f"Chunk: {result['chunk_id']}\n{result['text']}"
         for number, result in enumerate(results, start=1)
     )
@@ -72,7 +72,7 @@ def answer(question: str) -> str:
         raise ValueError("The model returned an empty answer.")
 
     sources = "\n".join(
-        f"[{number}] {result['source']} — {result['chunk_id']}"
+        f"[{number}] {result.get('source_url', result['source'])} — {result['chunk_id']}"
         for number, result in enumerate(results, start=1)
     )
     return f"{content}\n\nRetrieved sources:\n{sources}"

@@ -67,29 +67,7 @@ def load_document(path: Path) -> str:
             )
 
     elif extension in {".html", ".htm"}:
-        soup = BeautifulSoup(path.read_bytes(), "html.parser")
-
-        for element in soup(["script", "style", "nav", "footer"]):
-            element.decompose()
-
-        # Prefer the page's main content when available.
-        content = soup.find("main") or soup.find("article") or soup
-
-        # Keep table rows together so chunking can retain cell relationships.
-        for row in reversed(content.find_all("tr")):
-            cells = row.find_all(["th", "td"], recursive=False)
-            if not cells:
-                continue
-            values = []
-            for cell in cells:
-                for line_break in cell.find_all("br"):
-                    line_break.replace_with(" / ")
-                values.append(
-                    " ".join(cell.get_text(separator=" ", strip=True).split())
-                )
-            row.replace_with("\n" + " | ".join(values) + "\n")
-
-        text = content.get_text(separator="\n", strip=True)
+        text = extract_html(path.read_bytes())
 
     else:
         raise ValueError(f"Unsupported document format: {extension}")
@@ -97,4 +75,31 @@ def load_document(path: Path) -> str:
     if not text.strip():
         raise ValueError(f"No readable text found in {path.name}")
 
+    return text
+
+
+def extract_html(body: bytes) -> str:
+    soup = BeautifulSoup(body, "html.parser")
+
+    for element in soup(["script", "style", "nav", "footer"]):
+        element.decompose()
+
+    # Prefer the page's main content when available.
+    content = soup.find("main") or soup.find("article") or soup
+
+    # Keep table rows together so chunking can retain cell relationships.
+    for row in reversed(content.find_all("tr")):
+        cells = row.find_all(["th", "td"], recursive=False)
+        if not cells:
+            continue
+        values = []
+        for cell in cells:
+            for line_break in cell.find_all("br"):
+                line_break.replace_with(" / ")
+            values.append(" ".join(cell.get_text(separator=" ", strip=True).split()))
+        row.replace_with("\n" + " | ".join(values) + "\n")
+
+    text = content.get_text(separator="\n", strip=True)
+    if not text.strip():
+        raise ValueError("No readable text found in HTML.")
     return text

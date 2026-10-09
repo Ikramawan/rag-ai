@@ -8,6 +8,7 @@ import requests
 
 from app.chunking import split_text
 from app.document_loader import SUPPORTED_EXTENSIONS, load_document
+from app.url_documents import SNAPSHOT_SUFFIX, load_snapshot
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DOCUMENTS_DIR = PROJECT_ROOT / "data" / "documents"
@@ -26,20 +27,30 @@ def main() -> dict:
 
         source = path.relative_to(DOCUMENTS_DIR).as_posix()
 
-        if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        is_snapshot = path.name.endswith(SNAPSHOT_SUFFIX)
+        if path.suffix.lower() not in SUPPORTED_EXTENSIONS and not is_snapshot:
             print(f"Skipped unsupported file: {source}")
             skipped.append(source)
             continue
 
         try:
-            text = load_document(path)
+            provenance = {}
+            if is_snapshot:
+                snapshot = load_snapshot(path)
+                text = snapshot["text"]
+                provenance = {
+                    key: snapshot[key]
+                    for key in ("source_url", "resolved_url", "fetched_at")
+                }
+            else:
+                text = load_document(path)
         except ValueError as exc:
             raise ValueError(
                 f"Could not load document '{source}': {exc}. "
                 "No new index was published; any existing index is unchanged."
             ) from exc
         sections = text.split("\n## ")
-        title = path.stem
+        title = provenance.get("source_url", path.stem)
 
         for position, section in enumerate(sections):
             if position > 0:
@@ -51,6 +62,7 @@ def main() -> dict:
                         "source": source,
                         "chunk_id": f"{source}:{position}:{part}",
                         "text": f"Document: {title}\n\n{chunk}",
+                        **provenance,
                     }
                 )
 

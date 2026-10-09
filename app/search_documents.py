@@ -150,7 +150,7 @@ def main() -> None:
         raise SystemExit('Usage: python -m app.search_documents "your question"')
 
     for result in search(question):
-        print(f"\nSource: {result['source']}")
+        print(f"\nSource: {result.get('source_url', result['source'])}")
         print(f"Chunk: {result['chunk_id']}")
         print(f"Similarity: {result['score']:.3f}")
         print(f"Keyword score: {result['keyword_score']:.3f}")

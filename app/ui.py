@@ -6,6 +6,7 @@ import streamlit as st
 from app.answer_question import answer
 from app.document_loader import SUPPORTED_EXTENSIONS
 from app.index_documents import main as rebuild_index
+from app.url_documents import SNAPSHOT_SUFFIX, fetch_page, save_snapshot
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DOCUMENTS_DIR = PROJECT_ROOT / "data" / "documents"
@@ -58,6 +59,43 @@ with st.sidebar:
                 st.success(f"Saved {len(uploads)} documents.")
                 st.warning("Rebuild the index to include these documents.")
 
+    st.subheader("Documentation URL")
+    st.caption(
+        "Import one public HTML documentation page. Review the extracted text "
+        "before saving. Linked pages, attachments and sign-in pages are not supported."
+    )
+    documentation_url = st.text_input("Public documentation URL")
+    if st.button("Fetch preview", disabled=not documentation_url.strip()):
+        st.session_state.pop("url_preview", None)
+        try:
+            with st.spinner("Fetching documentation…"):
+                snapshot = fetch_page(documentation_url)
+        except (requests.RequestException, OSError, ValueError) as exc:
+            st.error(f"URL import failed: {exc}")
+        else:
+            st.session_state.url_preview = (documentation_url, snapshot)
+
+    preview = st.session_state.get("url_preview")
+    if preview and preview[0] == documentation_url:
+        snapshot = preview[1]
+        st.text(f"Fetched: {snapshot['fetched_at']}")
+        st.text(f"Page: {snapshot['resolved_url']}")
+        with st.expander("Extracted documentation", expanded=True):
+            st.text(snapshot["text"])
+        if st.button("Save URL snapshot"):
+            try:
+                save_snapshot(snapshot, DOCUMENTS_DIR)
+            except FileExistsError:
+                st.error(
+                    "This URL is already saved. Existing content was not overwritten."
+                )
+            except (OSError, ValueError) as exc:
+                st.error(f"Saving URL snapshot failed: {exc}")
+            else:
+                st.success("Saved documentation snapshot.")
+                st.warning("Rebuild the index to include this page.")
+                st.session_state.pop("url_preview", None)
+
     if st.button("Rebuild index"):
         try:
             with st.spinner("Reading documents and creating embeddings…"):
@@ -86,7 +124,10 @@ with st.sidebar:
             for path in DOCUMENTS_DIR.rglob("*")
             if path.is_file()
             and not path.name.startswith("~$")
-            and path.suffix.lower() in SUPPORTED_EXTENSIONS
+            and (
+                path.suffix.lower() in SUPPORTED_EXTENSIONS
+                or path.name.endswith(SNAPSHOT_SUFFIX)
+            )
         )
         if DOCUMENTS_DIR.exists()
         else []
