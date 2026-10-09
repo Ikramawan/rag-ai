@@ -16,10 +16,13 @@ from app import index_documents
         ("invalid.docx", "non_zip", "Invalid DOCX file"),
         ("missing-part.docx", "missing_part", "Invalid DOCX file"),
         ("invalid-xml.docx", "invalid_xml", "Invalid DOCX file"),
+        ("invalid.pdf", "malformed_pdf", "Invalid PDF file"),
+        ("encrypted.pdf", "encrypted_pdf", "Encrypted PDFs are not supported"),
+        ("textless.pdf", "textless_pdf", "scanned PDFs may require OCR"),
     ],
 )
 def test_invalid_document_aborts_rebuild_and_preserves_index(
-    tmp_path, monkeypatch, invalid_file, failure_kind, expected_reason
+    tmp_path, monkeypatch, make_pdf, invalid_file, failure_kind, expected_reason
 ):
     documents_dir = tmp_path / "documents"
     index_dir = tmp_path / "index"
@@ -35,6 +38,14 @@ def test_invalid_document_aborts_rebuild_and_preserves_index(
         invalid_path.write_text(" \n\t", encoding="utf-8")
     elif failure_kind == "non_zip":
         invalid_path.write_bytes(b"This is not a DOCX archive.")
+    elif failure_kind == "malformed_pdf":
+        invalid_path.write_bytes(b"Not a PDF")
+    elif failure_kind == "encrypted_pdf":
+        make_pdf(
+            invalid_path, [["Synthetic protected text."]], password="test-password"
+        )
+    elif failure_kind == "textless_pdf":
+        make_pdf(invalid_path, [[]])
     else:
         with ZipFile(invalid_path, "w") as archive:
             if failure_kind == "missing_part":

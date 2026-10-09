@@ -7,8 +7,10 @@ from docx.opc.exceptions import PackageNotFoundError
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from lxml.etree import XMLSyntaxError
+from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 
-SUPPORTED_EXTENSIONS = {".md", ".txt", ".docx", ".html", ".htm"}
+SUPPORTED_EXTENSIONS = {".md", ".txt", ".docx", ".html", ".htm", ".pdf"}
 
 
 def load_document(path: Path) -> str:
@@ -48,6 +50,21 @@ def load_document(path: Path) -> str:
                 blocks.append("\n".join(rows))
 
         text = "\n\n".join(blocks)
+
+    elif extension == ".pdf":
+        try:
+            with PdfReader(path, strict=True) as document:
+                if document.is_encrypted:
+                    raise ValueError("Encrypted PDFs are not supported.")
+                pages = [(page.extract_text() or "").strip() for page in document.pages]
+        except (PyPdfError, KeyError, TypeError) as exc:
+            raise ValueError(f"Invalid PDF file: {exc}") from exc
+
+        text = "\n\n".join(pages)
+        if not text.strip():
+            raise ValueError(
+                "No readable text found in PDF; scanned PDFs may require OCR."
+            )
 
     elif extension in {".html", ".htm"}:
         soup = BeautifulSoup(path.read_bytes(), "html.parser")

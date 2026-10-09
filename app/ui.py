@@ -17,6 +17,11 @@ st.info("Use synthetic, public or sanitised documents for this prototype.")
 
 with st.sidebar:
     st.header("Documents")
+    st.caption(
+        "PDF uploads support text-based documents. Scanned PDFs require OCR; "
+        "image-only content is not extracted. Encrypted PDFs are unsupported. "
+        "Complex layouts and tables may extract imperfectly."
+    )
 
     uploads = st.file_uploader(
         "Choose documents",
