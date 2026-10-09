@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +9,7 @@ import requests
 
 from app.chunking import split_text
 from app.document_loader import SUPPORTED_EXTENSIONS, load_document
+from app.index_validation import load_index
 from app.url_documents import SNAPSHOT_SUFFIX, load_snapshot
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +18,13 @@ INDEX_DIR = PROJECT_ROOT / "data" / "index"
 MODEL = "nomic-embed-text"
 
 
-def main() -> dict:
+def main(*, progress: Callable[[str], None] | None = None) -> dict:
+    def notify(message):
+        print(message)
+        if progress is not None:
+            progress(message)
+
+    notify("Processing documents")
     chunks = []
     loaded = []
     skipped = []
@@ -115,10 +123,8 @@ def main() -> dict:
 
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
-    metadata = json.dumps(
-        {"embedding_model": MODEL, "chunks": chunks},
-        ensure_ascii=False,
-    )
+    expected_metadata = {"embedding_model": MODEL, "chunks": chunks}
+    metadata = json.dumps(expected_metadata, ensure_ascii=False)
 
     temporary_path = None
     try:
@@ -136,6 +142,24 @@ def main() -> dict:
             temporary.flush()
             os.fsync(temporary.fileno())
 
+        notify("Validating candidate index")
+        try:
+            saved_metadata, saved_vectors, validation = load_index(
+                temporary_path, expected_sources=loaded
+            )
+            if saved_metadata != expected_metadata or not np.array_equal(
+                saved_vectors, vectors
+            ):
+                raise ValueError("Saved index differs from the generated content.")
+        except ValueError as exc:
+            raise ValueError(
+                f"Candidate index validation failed: {exc}. "
+                "No new index was published; any existing index is unchanged."
+            ) from exc
+        validation["checks"].append(
+            "Saved content matches generated chunks and vectors"
+        )
+        notify("Publishing validated index")
         os.replace(temporary_path, INDEX_DIR / "index.npz")
     finally:
         if temporary_path is not None:
@@ -147,6 +171,7 @@ def main() -> dict:
         "loaded": loaded,
         "skipped": skipped,
         "chunk_count": len(chunks),
+        "validation": validation,
     }
 
 

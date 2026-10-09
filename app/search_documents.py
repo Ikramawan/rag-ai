@@ -1,4 +1,3 @@
-import json
 import re
 import sys
 from pathlib import Path
@@ -6,6 +5,8 @@ from pathlib import Path
 import numpy as np
 import requests
 from rank_bm25 import BM25Okapi
+
+from app.index_validation import load_index
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INDEX_DIR = PROJECT_ROOT / "data" / "index"
@@ -90,19 +91,8 @@ def search(question: str, top_k: int = 3) -> list[dict]:
     if not question.strip() or top_k < 1:
         raise ValueError("Provide a question and a positive top_k.")
 
-    with np.load(INDEX_DIR / "index.npz", allow_pickle=False) as index:
-        metadata = json.loads(index["metadata"].item())
-        vectors = index["vectors"]
-
+    metadata, vectors, _ = load_index(INDEX_DIR / "index.npz")
     chunks = metadata["chunks"]
-
-    if (
-        vectors.ndim != 2
-        or vectors.shape[0] != len(chunks)
-        or not chunks
-        or not np.isfinite(vectors).all()
-    ):
-        raise ValueError("Invalid index. Rebuild it.")
 
     response = requests.post(
         "http://localhost:11434/api/embed",

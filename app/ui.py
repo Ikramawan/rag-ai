@@ -97,16 +97,30 @@ with st.sidebar:
                 st.session_state.pop("url_preview", None)
 
     if st.button("Rebuild index"):
-        try:
-            with st.spinner("Reading documents and creating embeddings…"):
-                report = rebuild_index()
-        except (requests.RequestException, OSError, ValueError, KeyError) as exc:
-            st.error(f"Index rebuild failed: {exc}")
-        else:
+        with st.status("Processing documents", expanded=True) as rebuild_status:
+            try:
+                report = rebuild_index(
+                    progress=lambda message: rebuild_status.update(label=message)
+                )
+            except (requests.RequestException, OSError, ValueError, KeyError) as exc:
+                rebuild_status.update(label="Index rebuild failed", state="error")
+                st.error(f"Index rebuild failed: {exc}")
+                report = None
+            else:
+                rebuild_status.update(
+                    label="Index ready", state="complete", expanded=False
+                )
+        if report is not None:
             st.success(
                 f"Indexed {len(report['loaded'])} documents "
                 f"into {report['chunk_count']} chunks."
             )
+            with st.expander("Passed index checks"):
+                for check in report["validation"]["checks"]:
+                    st.text(check)
+                st.caption(
+                    "These checks validate index integrity, not answer accuracy."
+                )
 
             with st.expander("Loaded documents"):
                 for source in report["loaded"]:
