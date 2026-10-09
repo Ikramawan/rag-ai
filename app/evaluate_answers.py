@@ -1,5 +1,7 @@
 import re
 
+import requests
+
 from app.answer_question import answer
 
 CASES = [
@@ -93,46 +95,146 @@ CASES = [
         "forbidden": ["http://", "https://", "www."],
         "citation": False,
     },
+    {
+        "question": "Which approval and billing details are needed to start a new GCP project?",
+        "required": [
+            "platform team",
+            "organisation",
+            "folder",
+            "project ID",
+            "billing account",
+            "permission",
+        ],
+        "forbidden": [],
+        "citation": True,
+    },
+    {
+        "question": "Give the ordered steps for obtaining new VPN access before the first connection.",
+        "required": ["approval", "request", "provision", "MFA"],
+        "forbidden": [],
+        "citation": True,
+        "ordered_steps": ["approval", "request", "provision", "mfa"],
+    },
+    {
+        "question": "How long are Harbor daily snapshot backups retained?",
+        "required": ["14 days"],
+        "forbidden": ["30 days"],
+        "citation": True,
+    },
+    {
+        "question": "What can a Harbor Viewer do, and who approves the role?",
+        "required": ["release records", "application owner"],
+        "forbidden": [],
+        "citation": True,
+    },
+    {
+        "question": "How long does storage Report reader access last?",
+        "required": ["30 days"],
+        "forbidden": ["90 days"],
+        "citation": True,
+    },
+    {
+        "question": "What are the prerequisites for scheduling a Harbor deployment?",
+        "required": [
+            "change",
+            "release owner",
+            "maintenance window",
+            "rollback criteria",
+        ],
+        "forbidden": [],
+        "citation": True,
+    },
+    {
+        "question": "Which sensitive items must I redact from diagnostic screenshots?",
+        "required": [
+            "password",
+            "tokens",
+            "MFA recovery codes",
+            "personal information",
+        ],
+        "forbidden": [],
+        "citation": True,
+    },
+    {
+        "question": "What exact CLI command deploys Harbor to production?",
+        "required": ["couldn't find enough information"],
+        "forbidden": ["kubectl apply", "gcloud run deploy", "helm upgrade"],
+        "citation": False,
+    },
 ]
 
 
-def main() -> None:
+def check_answer(output: str, case: dict) -> list[str]:
+    # Source-list text cannot satisfy answer-body requirements.
+    body = output.split("\n\nRetrieved sources:", maxsplit=1)[0]
+    normalized = " ".join(body.casefold().split())
+    problems = [
+        f"Missing: {phrase}"
+        for phrase in case["required"]
+        if phrase.casefold() not in normalized
+    ]
+    problems.extend(
+        f"Unexpected: {phrase}"
+        for phrase in case["forbidden"]
+        if phrase.casefold() in normalized
+    )
+
+    if case["citation"] and not re.search(r"\[\d+\]", body):
+        problems.append("Missing citation")
+    for alternatives in case.get("any_of", []):
+        if not any(phrase.casefold() in normalized for phrase in alternatives):
+            problems.append(f"Missing one of: {alternatives}")
+    if case.get("ordered_steps"):
+        steps = " ".join(re.findall(r"(?m)^\s*\d+[.)]\s+(.+)$", body)).casefold()
+        position = 0
+        for phrase in case["ordered_steps"]:
+            found = steps.find(phrase.casefold(), position)
+            if found < 0:
+                problems.append(f"Missing or out-of-order numbered step: {phrase}")
+                break
+            position = found + len(phrase)
+    return problems
+
+
+def evaluate(*, cases=None, answer_fn=None) -> dict:
+    cases = CASES if cases is None else cases
+    answer_fn = answer if answer_fn is None else answer_fn
     passed = 0
-
-    for case in CASES:
-        output = answer(case["question"])
-
-        # Check the answer body, excluding the appended source list.
-        body = output.split("\n\nRetrieved sources:", maxsplit=1)[0]
-        normalized = body.casefold()
-
-        problems = [
-            f"Missing: {phrase}"
-            for phrase in case["required"]
-            if phrase.casefold() not in normalized
-        ]
-        problems.extend(
-            f"Unexpected: {phrase}"
-            for phrase in case["forbidden"]
-            if phrase.casefold() in normalized
-        )
-
-        if case["citation"] and not re.search(r"\[\d+\]", body):
-            problems.append("Missing citation")
+    records = []
+    for case in cases:
+        try:
+            output = answer_fn(case["question"])
+            problems = check_answer(output, case)
+        except (OSError, ValueError, KeyError, requests.RequestException) as exc:
+            output = ""
+            problems = [f"Answer failed: {exc}"]
 
         if not problems:
             passed += 1
 
         status = "FAIL" if problems else "PASS"
         print(f"\n{status}: {case['question']}")
-        print(body)
+        print(output.split("\n\nRetrieved sources:", maxsplit=1)[0])
 
         for problem in problems:
             print(f"  {problem}")
+        records.append(
+            {
+                "question": case["question"],
+                "expectations": case,
+                "output": output,
+                "problems": problems,
+                "passed": not problems,
+            }
+        )
 
-    print(f"\nPassed {passed}/{len(CASES)} answer checks.")
+    print(f"\nPassed {passed}/{len(cases)} answer checks.")
+    return {"total": len(cases), "passed": passed, "cases": records}
 
-    if passed != len(CASES):
+
+def main() -> None:
+    report = evaluate()
+    if report["passed"] != report["total"]:
         raise SystemExit(1)
 
 

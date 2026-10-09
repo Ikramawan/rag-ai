@@ -31,6 +31,11 @@ Rules:
 
 def answer(question: str) -> str:
     results = search(question, top_k=3)
+    return answer_from_evidence(question, results)
+
+
+def answer_from_evidence(question: str, results: list[dict]) -> str:
+    """Use the same answer path with explicit evidence for isolated evaluations."""
 
     context = "\n\n".join(
         f"[{number}] Source: {result.get('source_url', result['source'])}\n"
