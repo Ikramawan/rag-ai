@@ -1,9 +1,12 @@
 from pathlib import Path
+from zipfile import BadZipFile
 
 from bs4 import BeautifulSoup
 from docx import Document
+from docx.opc.exceptions import PackageNotFoundError
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+from lxml.etree import XMLSyntaxError
 
 SUPPORTED_EXTENSIONS = {".md", ".txt", ".docx", ".html", ".htm"}
 
@@ -15,7 +18,10 @@ def load_document(path: Path) -> str:
         text = path.read_text(encoding="utf-8")
 
     elif extension == ".docx":
-        document = Document(path)
+        try:
+            document = Document(path)
+        except (PackageNotFoundError, BadZipFile, KeyError, XMLSyntaxError) as exc:
+            raise ValueError(f"Invalid DOCX file: {exc}") from exc
         blocks = []
 
         # Keep paragraphs and tables in their document order.
@@ -51,6 +57,21 @@ def load_document(path: Path) -> str:
 
         # Prefer the page's main content when available.
         content = soup.find("main") or soup.find("article") or soup
+
+        # Keep table rows together so chunking can retain cell relationships.
+        for row in reversed(content.find_all("tr")):
+            cells = row.find_all(["th", "td"], recursive=False)
+            if not cells:
+                continue
+            values = []
+            for cell in cells:
+                for line_break in cell.find_all("br"):
+                    line_break.replace_with(" / ")
+                values.append(
+                    " ".join(cell.get_text(separator=" ", strip=True).split())
+                )
+            row.replace_with("\n" + " | ".join(values) + "\n")
+
         text = content.get_text(separator="\n", strip=True)
 
     else:

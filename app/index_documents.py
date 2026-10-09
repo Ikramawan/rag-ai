@@ -31,7 +31,13 @@ def main() -> dict:
             skipped.append(source)
             continue
 
-        text = load_document(path)
+        try:
+            text = load_document(path)
+        except ValueError as exc:
+            raise ValueError(
+                f"Could not load document '{source}': {exc}. "
+                "No new index was published; any existing index is unchanged."
+            ) from exc
         sections = text.split("\n## ")
         title = path.stem
 
@@ -54,26 +60,46 @@ def main() -> dict:
     if not chunks:
         raise ValueError("No readable supported documents found.")
 
-    response = requests.post(
-        "http://localhost:11434/api/embed",
-        json={
-            "model": MODEL,
-            "input": [f"search_document: {chunk['text']}" for chunk in chunks],
-            "truncate": False,
-        },
-        timeout=180,
-    )
-    response.raise_for_status()
+    batch_size = 32
+    vector_batches = []
+    dimensions = None
 
-    vectors = np.asarray(response.json()["embeddings"], dtype=np.float32)
+    for start in range(0, len(chunks), batch_size):
+        batch = chunks[start : start + batch_size]
 
-    if (
-        vectors.ndim != 2
-        or vectors.shape[0] != len(chunks)
-        or vectors.shape[1] == 0
-        or not np.isfinite(vectors).all()
-    ):
-        raise ValueError("Invalid embedding response.")
+        response = requests.post(
+            "http://localhost:11434/api/embed",
+            json={
+                "model": MODEL,
+                "input": [f"search_document: {chunk['text']}" for chunk in batch],
+                "truncate": False,
+            },
+            timeout=180,
+        )
+        response.raise_for_status()
+
+        batch_vectors = np.asarray(
+            response.json()["embeddings"],
+            dtype=np.float32,
+        )
+
+        if (
+            batch_vectors.ndim != 2
+            or batch_vectors.shape[0] != len(batch)
+            or batch_vectors.shape[1] == 0
+            or not np.isfinite(batch_vectors).all()
+        ):
+            raise ValueError("Invalid embedding response.")
+
+        if dimensions is None:
+            dimensions = batch_vectors.shape[1]
+        elif batch_vectors.shape[1] != dimensions:
+            raise ValueError("Embedding dimensions changed between batches.")
+
+        vector_batches.append(batch_vectors)
+        print(f"Embedded {start + len(batch)}/{len(chunks)} chunks.")
+
+    vectors = np.concatenate(vector_batches, axis=0)
 
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
